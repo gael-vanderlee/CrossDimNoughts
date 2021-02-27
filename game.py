@@ -4,6 +4,7 @@ from sympy.utilities.iterables import subsets
 from sympy.utilities.iterables import multiset_permutations
 from agent import Agent
 
+
 class Game(gym.Env):
     def __init__(self, p1, p2, size=3, n_dim=2):
         assert (type(n_dim) is int and n_dim >= 2), "wrong n_dim"
@@ -273,3 +274,17 @@ class Game(gym.Env):
                     score_p2 += 1
 
         return score_p1, score_p2
+
+    def board_position_to_tuple(self, pos):
+        resulting_position = []
+        for k in range(self.n_dim):
+            resulting_position.insert(0, pos % self.size)
+            pos //= self.size
+        return tuple(resulting_position)
+
+    def board_position_to_index(self, pos):
+        # For dimension >= 3, we enumerate from higher, so this trick will work
+        res = 0
+        for i in range(len(pos)):
+            res += pos[i] * (self.size ** (len(pos) - 1 - i))
+        return res

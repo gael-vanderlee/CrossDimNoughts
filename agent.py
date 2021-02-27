@@ -415,5 +415,4 @@ class Agent:
         state = np.reshape(flat_list, (size, size))
         return state
 
-
 # %%
