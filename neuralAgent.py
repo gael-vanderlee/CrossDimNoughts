@@ -14,9 +14,9 @@ class Model(torch.nn.Module):
 
     def forward(self, x):
         x = self.fc1(x)
-        x = torch.nn.ReLU()(x)
+        x = torch.nn.LeakyReLU()(x)
         x = self.fc2(x)
-        x = torch.nn.ReLU()(x)
+        x = torch.nn.LeakyReLU()(x)
         x = self.fc3(x)
         x = torch.nn.Softmax(dim=1)(x)
         return x
@@ -48,12 +48,13 @@ def make_move(game_instance, model):
 def loss(states, actions, rewards, model):
     predicts = torch.log(model(states))
     losses = rewards * predicts[np.arange(len(actions)), actions]
-    #print(-losses.mean())
+    # print(-losses.mean())
     return -losses.mean()
 
 
 def train_network(model, game_instance, num_of_iterations):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+    criteria = torch.nn.BCELoss()
     loss_values = []
     game_records = []
     wins = 0
@@ -80,17 +81,25 @@ def train_network(model, game_instance, num_of_iterations):
             draws += 1
         scaling_coeff = 0.8
         if game_instance.current_score[0] > 0:
-            for j in range(len(game_record) - 2, 0, -1):
-                record = list(game_record[j]) #fix workaround
-                record[1] += game_record[j + 1][1] * scaling_coeff
+            for j in range(len(game_record) - 2, -1, -1):
+                record = list(game_record[j])  # fix workaround
+                record[1] = game_record[j + 1][1] * scaling_coeff
                 game_record[j] = tuple(record)
-        elif game_instance.current_score[0] == game_instance.current_score[1]: #draw case
+        elif game_instance.current_score[0] == game_instance.current_score[1]:  # draw case
             last_move = list(game_record[-1])
-            last_move[1] = 0.5 #draw reward 0.5 for now
+            last_move[1] = 0.5  # draw reward 0.5 for now
             game_record[-1] = tuple(last_move)
-            for j in range(len(game_record) - 2, 0, -1):
-                record = list(game_record[j]) #fix workaround
-                record[1] += game_record[j + 1][1] * scaling_coeff
+            for j in range(len(game_record) - 2, -1, -1):
+                record = list(game_record[j])  # fix workaround
+                record[1] = game_record[j + 1][1] * scaling_coeff
+                game_record[j] = tuple(record)
+        elif game_instance.current_score[1] > 0:
+            last_move = list(game_record[-1])
+            last_move[1] = -1  # draw reward 0.5 for now
+            game_record[-1] = tuple(last_move)
+            for j in range(len(game_record) - 2, -1, -1):
+                record = list(game_record[j])  # fix workaround
+                record[1] = game_record[j + 1][1] * scaling_coeff
                 game_record[j] = tuple(record)
 
         # get a look on draw and lose reward
@@ -106,12 +115,17 @@ def train_network(model, game_instance, num_of_iterations):
                 index = np.random.randint(0, len(game_records))
                 # print(j[1][0])
                 states.append(game_records[index][0][0])  # to check why
-                actions.append(game_records[index][2])
-                rewards.append(game_records[index][1])
+                actions_list = [0 for i in range(game_instance.size ** game_instance.n_dim)]
+                actions_list[game_records[index][2]] = game_records[index][1]
+                actions.append(actions_list)
+                # actions.append(game_records[index][2])
+                # rewards.append(game_records[index][1])
             states = torch.tensor(states).type(torch.float)
             actions = torch.tensor(actions)
             rewards = torch.tensor(rewards)
-            l = loss(states, actions, rewards, model)
+
+            l = criteria(model(states), actions)
+            #l = loss(states, actions, rewards, model)
             loss_values.append(l.detach().numpy())
 
             l.backward()
@@ -125,4 +139,3 @@ def train_network(model, game_instance, num_of_iterations):
 #
 # agent1, loss_values, wins, draws, loses = train_network(agent1, game, 5000)
 # print(wins, draws, loses)
-
