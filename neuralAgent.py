@@ -115,20 +115,19 @@ def train_network(model, game_instance, num_of_iterations):
                 index = np.random.randint(0, len(game_records))
                 # print(j[1][0])
                 states.append(game_records[index][0][0])  # to check why
-                actions_list = [0 for i in range(game_instance.size ** game_instance.n_dim)]
+                actions_list = [1e-9 for i in range(game_instance.size ** game_instance.n_dim)]
                 actions_list[game_records[index][2]] = game_records[index][1]
                 actions.append(actions_list)
                 # actions.append(game_records[index][2])
                 # rewards.append(game_records[index][1])
-            states = torch.tensor(states).type(torch.float)
+            states = torch.tensor(states, dtype=torch.float)
             actions = torch.tensor(actions)
             rewards = torch.tensor(rewards)
 
             l = criteria(model(states), actions)
             #l = loss(states, actions, rewards, model)
-            loss_values.append(l.detach().numpy())
-
             l.backward()
+            loss_values.append(l.detach().numpy())
             optimizer.step()
             # print(actions)
             # print(rewards)
