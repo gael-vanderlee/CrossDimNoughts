@@ -2,15 +2,17 @@
 
 import torch
 import numpy as np
+from tqdm import tqdm
+
 import agent
 
 
 class Model(torch.nn.Module):
     def __init__(self, size=3, n_dim=2):
         super(Model, self).__init__()
-        self.fc1 = torch.nn.Linear(size ** n_dim, size ** n_dim * 30)
-        self.fc2 = torch.nn.Linear(size ** n_dim * 30, size ** n_dim * 30)  # workaround for now
-        self.fc3 = torch.nn.Linear(size ** n_dim * 30, size ** n_dim)
+        self.fc1 = torch.nn.Linear(size ** n_dim, size ** n_dim * 50)
+        self.fc2 = torch.nn.Linear(size ** n_dim * 50, size ** n_dim * 50)  # workaround for now
+        self.fc3 = torch.nn.Linear(size ** n_dim * 50, size ** n_dim)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -36,105 +38,110 @@ def get_best_possible(game_instance, probs):
 
 
 def make_move(game_instance, model):
-    prev_state = np.reshape(game_instance.board, (1, -1))
+    prev_state = np.reshape(game_instance.board, (-1))
     state = torch.tensor(game_instance.board).view(1, -1).type(torch.float)
-    # print(state.shape)
     result = model(state).detach().numpy()[0]
     best_move, best_move_tuple = get_best_possible(game_instance, result)
     new_state, reward, is_done, _ = game_instance.step(best_move_tuple)
-    return prev_state, reward, best_move, new_state
+    return prev_state, reward, best_move
 
 
-def loss(states, actions, rewards, model):
-    predicts = torch.log(model(states))
-    losses = rewards * predicts[np.arange(len(actions)), actions]
-    # print(-losses.mean())
-    return -losses.mean()
-
-
-def train_network(model, game_instance, num_of_iterations):
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+#
+def train_network(model, game_instance, num_of_iterations, batch_size, max_records_size=5000, train_for_second=False):
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=0.0001)
     criteria = torch.nn.BCELoss()
     loss_values = []
-    game_records = []
+    game_records_x = []
+    game_records_y = []
     wins = 0
     draws = 0
     loses = 0
-    for i in range(num_of_iterations):
+    batch_size = min(num_of_iterations, batch_size)
+    for i in tqdm(range(num_of_iterations)):
         game_instance.reset()
-        game_record = []
+        game_record_x = []
+        game_record_y = []
         while not game_instance.is_done():
             result = make_move(game_instance, model)
-            game_record.append(result)
+            game_record_x.append(list(result))
             if game_instance.is_done():
                 break
-            # result = make_move(game, agent2)
-            prev_state = np.reshape(game_instance.board, (1, -1))
+            prev_state = np.reshape(game_instance.board, (-1))
             move = agent.random_policy(game_instance.board, '')
             new_state, reward, is_done, _ = game_instance.step(move)
-            # game_record.append((prev_state, -reward, game_instance.board_position_to_index(move))) # not collecting for one model
-        # print(game.current_score)
+            game_record_y.append(
+                [prev_state, reward, game_instance.board_position_to_index(move)])  # not collecting for one model
 
-        wins += game_instance.current_score[0]
-        loses += game_instance.current_score[1]
-        if game_instance.current_score == (0, 0):
+        if game_instance.current_score[0] > game_instance.current_score[1]:
+            wins += 1
+            reward = (1, -1)
+        elif game_instance.current_score[0] < game_instance.current_score[1]:
+            loses += 1
+            reward = (-1, 1)
+        else:
             draws += 1
+            reward = (0.8, 0.8)
+
+        # propagate reward
         scaling_coeff = 0.8
-        if game_instance.current_score[0] > 0:
-            for j in range(len(game_record) - 2, -1, -1):
-                record = list(game_record[j])  # fix workaround
-                record[1] = game_record[j + 1][1] * scaling_coeff
-                game_record[j] = tuple(record)
-        elif game_instance.current_score[0] == game_instance.current_score[1]:  # draw case
-            last_move = list(game_record[-1])
-            last_move[1] = 0.5  # draw reward 0.5 for now
-            game_record[-1] = tuple(last_move)
-            for j in range(len(game_record) - 2, -1, -1):
-                record = list(game_record[j])  # fix workaround
-                record[1] = game_record[j + 1][1] * scaling_coeff
-                game_record[j] = tuple(record)
-        elif game_instance.current_score[1] > 0:
-            last_move = list(game_record[-1])
-            last_move[1] = -1  # draw reward 0.5 for now
-            game_record[-1] = tuple(last_move)
-            for j in range(len(game_record) - 2, -1, -1):
-                record = list(game_record[j])  # fix workaround
-                record[1] = game_record[j + 1][1] * scaling_coeff
-                game_record[j] = tuple(record)
+        game_record_x[-1][1] = reward[0]
 
-        # get a look on draw and lose reward
-        for j in game_record:
-            game_records.append(j)
+        def append_game_to_records(game_record, game_records):
+            for k in range(len(game_record) - 2, -1, -1):
+                game_record[k][1] = game_record[k + 1][1] * scaling_coeff
+            game_records.extend(game_record)
+            if len(game_records) > max_records_size:
+                game_records = game_records[(len(game_records) - max_records_size):]  # first elements
+            return game_records
 
-        if i % 100 == 0 and i != 0:
+        game_records_x = append_game_to_records(game_record_x, game_records_x)
+        game_records_y = append_game_to_records(game_record_y, game_records_y)
+
+        def train_step(game_records):
             optimizer.zero_grad()
             states = []
             actions = []
-            rewards = []
-            for j in range(100):
+            for j in range(batch_size):
                 index = np.random.randint(0, len(game_records))
-                # print(j[1][0])
-                states.append(game_records[index][0][0])  # to check why
-                actions_list = [1e-9 for i in range(game_instance.size ** game_instance.n_dim)]
+                states.append(game_records[index][0])  # to check why
+                actions_list = [0 for i in range(game_instance.size ** game_instance.n_dim)]
                 actions_list[game_records[index][2]] = game_records[index][1]
                 actions.append(actions_list)
-                # actions.append(game_records[index][2])
-                # rewards.append(game_records[index][1])
             states = torch.tensor(states, dtype=torch.float)
-            actions = torch.tensor(actions)
-            rewards = torch.tensor(rewards)
-
-            l = criteria(model(states), actions)
-            #l = loss(states, actions, rewards, model)
-            l.backward()
-            loss_values.append(l.detach().numpy())
+            actions = torch.tensor(actions, dtype=torch.float)
+            loss = criteria(model(states), actions)
+            loss.backward()
+            loss_values.append(loss.detach().numpy())
             optimizer.step()
-            # print(actions)
-            # print(rewards)
-        if i % 1000 == 0:
-            print(i)
+            return loss.detach().numpy()
+
+        if i % batch_size == 0 and i != 0:
+            if train_for_second:
+                loss = train_step(game_records_y)
+            else:
+                loss = train_step(game_records_x)
+
+            loss_values.append(loss)
     return model, loss_values, wins, draws, loses
 
-#
-# agent1, loss_values, wins, draws, loses = train_network(agent1, game, 5000)
-# print(wins, draws, loses)
+
+def test_against_random(agent1, game, num_of_iteration=1000):
+    wins = 0
+    draws = 0
+    loses = 0
+    for i in range(num_of_iteration):
+        game.reset()
+        while not game.is_done():
+            make_move(game, agent1)
+            if game.is_done():
+                break
+            move = agent.random_policy(game.board, '')
+            new_state, reward, is_done, _ = game.step(move)
+
+        if game.current_score[0] > game.current_score[1]:
+            wins += 1
+        elif game.current_score[0] < game.current_score[1]:
+            loses += 1
+        else:
+            draws += 1
+    return wins, draws, loses
