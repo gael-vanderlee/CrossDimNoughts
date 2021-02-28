@@ -20,26 +20,27 @@ class Game(gym.Env):
         super(Game, self).__init__()
 
     def simulate_games(self, n=100):
-        win_p1, win_p2, tot_even = 0, 0, 0
+        win_p1_a, win_p2_a, tot_even_a = 0, 0, 0
+        win_p1_b, win_p2_b, tot_even_b = 0, 0, 0
         for _ in range(n // 2):
             s1, s2 = self.play_a_game(verbose=False)
             if s1 > s2:
-                win_p1 += 1
+                win_p1_a += 1
             elif s2 > s1:
-                win_p2 += 1
+                win_p2_a += 1
             else:
-                tot_even += 1
+                tot_even_a += 1
         self.p1, self.p2 = self.p2, self.p1
         for _ in range(n // 2):
             s1, s2 = self.play_a_game(verbose=False)
             if s1 > s2:
-                win_p2 += 1
+                win_p2_b += 1
             elif s2 > s1:
-                win_p1 += 1
+                win_p1_b += 1
             else:
-                tot_even += 1
+                tot_even_b += 1
         self.p1, self.p2 = self.p2, self.p1
-        return win_p1, win_p2, tot_even
+        return win_p1_a, win_p2_a, tot_even_a, win_p1_b, win_p2_b, tot_even_b
 
     def play_a_game(self, verbose=True):
         self.reset()

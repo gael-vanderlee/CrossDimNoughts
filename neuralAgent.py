@@ -125,11 +125,11 @@ def train_network(model, game_instance, num_of_iterations, batch_size, max_recor
     return model, loss_values, wins, draws, loses
 
 
-def test_against_random(agent1, game, num_of_iteration=1000):
+def test_against_random(agent1, game, num_of_iterations=1000):
     wins = 0
     draws = 0
     loses = 0
-    for i in range(num_of_iteration):
+    for i in tqdm(range(num_of_iterations)):
         game.reset()
         while not game.is_done():
             make_move(game, agent1)
