@@ -38,9 +38,10 @@ def get_best_possible(game_instance, probs):
 
 
 def make_move(game_instance, model):
+    device = 'cuda' if torch.cuda.is_available else 'cpu'
     prev_state = np.reshape(game_instance.board, (-1))
-    state = torch.tensor(game_instance.board).view(1, -1).type(torch.float)
-    result = model(state).detach().numpy()[0]
+    state = torch.tensor(game_instance.board).view(1, -1).type(torch.float).to(device)
+    result = model(state).cpu().detach().numpy()[0]
     best_move, best_move_tuple = get_best_possible(game_instance, result)
     new_state, reward, is_done, _ = game_instance.step(best_move_tuple)
     return prev_state, reward, best_move
@@ -48,6 +49,8 @@ def make_move(game_instance, model):
 
 #
 def train_network(model, game_instance, num_of_iterations, batch_size, max_records_size=5000, train_for_second=False):
+    device = 'cuda' if torch.cuda.is_available else 'cpu'
+    model.to(device)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=0.0001)
     criteria = torch.nn.BCELoss()
     loss_values = []
@@ -88,7 +91,7 @@ def train_network(model, game_instance, num_of_iterations, batch_size, max_recor
 
         def append_game_to_records(game_record, game_records):
             for k in range(len(game_record) - 2, -1, -1):
-                game_record[k][1] = game_record[k + 1][1] * scaling_coeff
+                game_record[k][1] += game_record[k + 1][1] * scaling_coeff # doing sum, so we can properly play in multidim
             game_records.extend(game_record)
             if len(game_records) > max_records_size:
                 game_records = game_records[(len(game_records) - max_records_size):]  # first elements
@@ -104,16 +107,19 @@ def train_network(model, game_instance, num_of_iterations, batch_size, max_recor
             for j in range(batch_size):
                 index = np.random.randint(0, len(game_records))
                 states.append(game_records[index][0])  # to check why
-                actions_list = [0 for i in range(game_instance.size ** game_instance.n_dim)]
+                actions_list = np.zeros(game_instance.size ** game_instance.n_dim)
                 actions_list[game_records[index][2]] = game_records[index][1]
                 actions.append(actions_list)
             states = torch.tensor(states, dtype=torch.float)
             actions = torch.tensor(actions, dtype=torch.float)
+            states = states.to(device)
+            actions = actions.to(device)
             loss = criteria(model(states), actions)
             loss.backward()
-            loss_values.append(loss.detach().numpy())
+            loss_value = loss.cpu().detach().numpy()
+            loss_values.append(loss_value)
             optimizer.step()
-            return loss.detach().numpy()
+            return loss_value
 
         if i % batch_size == 0 and i != 0:
             if train_for_second:
