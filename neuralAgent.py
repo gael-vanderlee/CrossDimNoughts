@@ -23,6 +23,11 @@ class Model(torch.nn.Module):
         x = torch.nn.Softmax(dim=1)(x)
         return x
 
+    def save(self, filepath="neuralAgent_weights"):
+        torch.save(self.state_dict(), filepath)
+
+    def load(self, filepath="neuralAgent_weights"):
+        self.load_state_dict(torch.load(filepath))
 
 # print("transform ", game.board_position_to_index((2, 1, 1)))
 
