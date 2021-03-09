@@ -194,7 +194,8 @@ class Agent:
                                                         + alpha * gamma * self.q_array.loc[
                                                             code_new_state, code_new_action]
 
-    def play_vs_opponent(self, state, symbol):
+    def play_vs_opponent(self, game, symbol):
+        state = game.board
         if self.policy is not None:
             return self.policy(state, symbol)
         state_code = self.encode_state(state)

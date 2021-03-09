@@ -2,7 +2,6 @@ import gym
 import numpy as np
 from sympy.utilities.iterables import subsets
 from sympy.utilities.iterables import multiset_permutations
-from agent import Agent
 
 
 class Game(gym.Env):
@@ -52,8 +51,8 @@ class Game(gym.Env):
                 player = self.p1
             else:
                 player = self.p2
-            if isinstance(player, Agent):
-                coords = player.play_vs_opponent(self.board, self.turn)
+            if player != "Human player":
+                coords = player.play_vs_opponent(self, self.turn)
                 if verbose:
                     print('Agent plays :', coords, '\n')
             else:
@@ -276,6 +275,7 @@ class Game(gym.Env):
 
         return score_p1, score_p2
 
+    # these methods will stay here as far as they are already in use
     def board_position_to_tuple(self, pos):
         resulting_position = []
         for k in range(self.n_dim):
@@ -289,3 +289,4 @@ class Game(gym.Env):
         for i in range(len(pos)):
             res += pos[i] * (self.size ** (len(pos) - 1 - i))
         return res
+

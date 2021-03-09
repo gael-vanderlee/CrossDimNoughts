@@ -3,8 +3,19 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-
+from game import Game
 import agent
+
+
+def get_best_possible(game_instance, probs):
+    probs = [(probs[i], i) for i in range(probs.shape[0])]
+    probs = sorted(probs, reverse=True)
+    for j in probs:
+        position = j[1]
+        resulting_position = game_instance.board_position_to_tuple(position)
+        if game_instance.board[resulting_position] == 0:
+            return position, resulting_position
+    return None
 
 
 class Model(torch.nn.Module):
@@ -29,17 +40,12 @@ class Model(torch.nn.Module):
     def load(self, filepath="neuralAgent_weights"):
         self.load_state_dict(torch.load(filepath))
 
-# print("transform ", game.board_position_to_index((2, 1, 1)))
-
-def get_best_possible(game_instance, probs):
-    probs = [(probs[i], i) for i in range(probs.shape[0])]
-    probs = sorted(probs, reverse=True)
-    for j in probs:
-        position = j[1]
-        resulting_position = game_instance.board_position_to_tuple(position)
-        if game_instance.board[resulting_position] == 0:
-            return position, resulting_position
-    return None
+    def play_vs_opponent(self, game, turn):
+        device = 'cuda' if torch.cuda.is_available else 'cpu'
+        state = torch.tensor(game.board).view(1, -1).type(torch.float).to(device)
+        result = self(state).cpu().detach().numpy()[0]
+        best_move, best_move_tuple = get_best_possible(game, result)
+        return game.board_position_to_tuple(best_move)
 
 
 def make_move(game_instance, model):
@@ -96,7 +102,8 @@ def train_network(model, game_instance, num_of_iterations, batch_size, max_recor
 
         def append_game_to_records(game_record, game_records):
             for k in range(len(game_record) - 2, -1, -1):
-                game_record[k][1] += game_record[k + 1][1] * scaling_coeff # doing sum, so we can properly play in multidim
+                game_record[k][1] += game_record[k + 1][
+                                         1] * scaling_coeff  # doing sum, so we can properly play in multidim
             game_records.extend(game_record)
             if len(game_records) > max_records_size:
                 game_records = game_records[(len(game_records) - max_records_size):]  # first elements
