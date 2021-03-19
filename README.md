@@ -25,7 +25,7 @@
 ## About The Project
 
 This project was done as a project for the Reinforcement learning course of the Ecole Polytechnique de Paris.
-Our team built multiple RL agents that manage to play Tic Tac Toe in an arbitrary number of dimensions on and arbitrary sized board.
+Our team built multiple RL agents that manage to play Tic Tac Toe in an arbitrary number of dimensions on an arbitrary sized board.
 
 <!-- GETTING STARTED -->
 ## Getting Started
