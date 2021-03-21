@@ -163,3 +163,44 @@ def test_against_random(agent1, game, num_of_iterations=1000):
         else:
             draws += 1
     return wins, draws, loses
+
+
+def test_against_policy(agent1, game, policy, num_of_iterations=1000):
+    wins = 0
+    draws = 0
+    loses = 0
+    for i in tqdm(range(num_of_iterations)):
+        game.reset()
+        if i%2 == 0:
+            policy_symbol = -1
+            while not game.is_done():
+                make_move(game, agent1)
+                if game.is_done():
+                    break
+                move = policy(game.board, policy_symbol)
+                new_state, reward, is_done, _ = game.step(move)
+                
+            if game.current_score[0] > game.current_score[1]:
+                wins += 1
+            elif game.current_score[0] < game.current_score[1]:
+                loses += 1
+            else:
+                draws += 1
+
+        else:
+            policy_symbol = 1
+            while not game.is_done():
+                move = policy(game.board, policy_symbol)
+                new_state, reward, is_done, _ = game.step(move)
+                if game.is_done():
+                    break
+                make_move(game, agent1)
+                
+            if game.current_score[0] < game.current_score[1]:
+                wins += 1
+            elif game.current_score[0] > game.current_score[1]:
+                loses += 1
+            else:
+                draws += 1
+                    
+    return wins, draws, loses
