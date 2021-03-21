@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from tqdm import trange
+from game import Game
 
 
 def check_almost_align(board, s):
@@ -53,6 +54,17 @@ def advanced_random_policy(board, symbol):
         return coords
     available_pos = np.array(np.where(board == 0)).T
     return tuple(available_pos[np.random.randint(available_pos.shape[0])])
+
+
+def advanced_policy_nD(board, symbol):
+    obj = Game(None, None, n_dim=len(board.shape), size=board.shape[0])
+    obj.board = board
+    coords = obj.almost_align()
+    if coords is not None:
+        return coords
+    else:
+        available_pos = np.array(np.where(board == 0)).T
+        return tuple(available_pos[np.random.randint(available_pos.shape[0])])
 
 
 def sarsa(game, agent, opponent_policy, alpha, alpha_factor, gamma, epsilon, epsilon_factor, \

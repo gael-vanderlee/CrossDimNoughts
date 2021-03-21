@@ -213,8 +213,6 @@ class Game(gym.Env):
                 mask[tuple(L)] = True
             return mask
 
-        score_p1 = 0
-        score_p2 = 0
         # vertical and horizontal axis
         all_axis = []
         for d in range(self.size ** self.n_dim):
@@ -229,10 +227,14 @@ class Game(gym.Env):
                 space_mask = slice_to_mask(list(axis))
                 in_game_axis = self.board[space_mask]
                 axis_value = in_game_axis.sum().item()
-                if axis_value == self.size - 1:
-                    score_p1 += 1
-                elif axis_value == -self.size + 1:
-                    score_p2 += 1
+                if axis_value == self.size - 1 and -1 not in in_game_axis:
+                    for coords in np.argwhere(space_mask == True):
+                        if self.board[tuple(coords)] == 0:
+                            return tuple(coords)
+                elif axis_value == -self.size + 1 and 1 not in in_game_axis:
+                    for coords in np.argwhere(space_mask == True):
+                        if self.board[tuple(coords)] == 0:
+                            return tuple(coords)
 
         # diagonal axis
         diag = np.array([range(self.size)]).T
@@ -264,16 +266,21 @@ class Game(gym.Env):
                         coords_to_check.add(tuple(map(tuple, perm_coords)))
 
         for coords in coords_to_check:
-            total = 0
+            total_pos, total_neg = 0, 0
             for tile in coords:
-                total += self.board[tile]
-            if abs(total) == self.size - 1:
-                if total > 0:
-                    score_p1 += 1
-                else:
-                    score_p2 += 1
-
-        return score_p1, score_p2
+                if self.board[tile] == 1:
+                    total_pos += 1
+                elif self.board[tile] == -1:
+                    total_neg += 1
+            if total_pos == self.size - 1 and total_neg == 0:
+                for tile in coords:
+                    if self.board[tile] == 0:
+                        return tile
+            elif total_neg == self.size - 1 and total_pos == 0:
+                for tile in coords:
+                    if self.board[tile] == 0:
+                        return tile
+        return None
 
     # these methods will stay here as far as they are already in use
     def board_position_to_tuple(self, pos):
