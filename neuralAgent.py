@@ -59,7 +59,7 @@ def make_move(game_instance, model):
 
 
 #
-def train_network(model, game_instance, num_of_iterations, batch_size, max_records_size=5000, train_for_second=False):
+def train_network(model, game_instance, num_of_iterations, batch_size, max_records_size=5000, train_for_second=False, policy=agent.random_policy):
     device = 'cuda' if torch.cuda.is_available else 'cpu'
     model.to(device)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=0.0001)
@@ -81,7 +81,7 @@ def train_network(model, game_instance, num_of_iterations, batch_size, max_recor
             if game_instance.is_done():
                 break
             prev_state = np.reshape(game_instance.board, (-1))
-            move = agent.random_policy(game_instance.board, '')
+            move = policy(game_instance.board, -1)
             new_state, reward, is_done, _ = game_instance.step(move)
             game_record_y.append(
                 [prev_state, reward, game_instance.board_position_to_index(move)])  # not collecting for one model
