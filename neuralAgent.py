@@ -41,7 +41,7 @@ class Model(torch.nn.Module):
         self.load_state_dict(torch.load(filepath))
 
     def play_vs_opponent(self, game, turn):
-        device = 'cuda' if torch.cuda.is_available else 'cpu'
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         state = torch.tensor(game.board).view(1, -1).type(torch.float).to(device)
         result = self(state).cpu().detach().numpy()[0]
         best_move, best_move_tuple = get_best_possible(game, result)
@@ -49,7 +49,7 @@ class Model(torch.nn.Module):
 
 
 def make_move(game_instance, model):
-    device = 'cuda' if torch.cuda.is_available else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     prev_state = np.reshape(game_instance.board, (-1))
     state = torch.tensor(game_instance.board).view(1, -1).type(torch.float).to(device)
     result = model(state).cpu().detach().numpy()[0]
@@ -60,7 +60,7 @@ def make_move(game_instance, model):
 
 #
 def train_network(model, game_instance, num_of_iterations, batch_size, max_records_size=5000, train_for_second=False, policy=agent.random_policy):
-    device = 'cuda' if torch.cuda.is_available else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model.to(device)
     optimizer = torch.optim.RMSprop(model.parameters(), lr=0.0001)
     criteria = torch.nn.BCELoss()
