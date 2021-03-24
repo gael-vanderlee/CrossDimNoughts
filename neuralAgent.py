@@ -39,6 +39,8 @@ class Model(torch.nn.Module):
 
     def load(self, filepath="neuralAgent_weights"):
         self.load_state_dict(torch.load(filepath))
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.to(device)
 
     def play_vs_opponent(self, game, turn):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'

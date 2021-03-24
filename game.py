@@ -51,7 +51,7 @@ class Game(gym.Env):
                 player = self.p1
             else:
                 player = self.p2
-            if player != "Human player":
+            if type(player) is not str:
                 coords = player.play_vs_opponent(self, self.turn)
                 if verbose:
                     print('Agent plays :', coords, '\n')
